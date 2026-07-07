@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -38,6 +39,13 @@ def _try_prefix_extraction(series: pd.Series) -> Optional[pd.Series]:
 
 
 async def run_feature_agent(state: AgentState) -> AgentState:
+    """Thin async wrapper — all the actual work is synchronous pandas/sklearn with no LLM
+    calls, so it runs on a worker thread via asyncio.to_thread to avoid blocking the event
+    loop (and therefore the SSE stream to the frontend) for however long it takes."""
+    return await asyncio.to_thread(_run_feature_agent_sync, state)
+
+
+def _run_feature_agent_sync(state: AgentState) -> AgentState:
     state["current_agent"] = "features"
     state["progress_pct"] = 22
     state["messages"].append("🔧 Engineering features...")

@@ -2,17 +2,18 @@ import base64
 from io import BytesIO
 from typing import Optional
 
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from app.tools.chart_style import PALETTE, apply_style, style_ax
+
+apply_style()
+
 
 def _fig_to_b64(fig) -> str:
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", bbox_inches="tight")
     b64 = base64.b64encode(buf.getvalue()).decode()
     plt.close(fig)
     return b64
@@ -81,9 +82,10 @@ def compute_shap_summary(pipeline, X_sample: pd.DataFrame, problem_type: str, ma
     top_importance = mean_abs[order]
 
     fig, ax = plt.subplots(figsize=(9, max(4, len(top_names) * 0.4)))
-    ax.barh(top_names[::-1], top_importance[::-1], color="#2c7fb8", edgecolor="white")
+    ax.barh(top_names[::-1], top_importance[::-1], color=PALETTE["primary"], edgecolor="white")
     ax.set_xlabel("Mean |SHAP value| (impact on model output)")
     ax.set_title("SHAP Feature Importance")
+    style_ax(ax)
     plt.tight_layout()
     bar_chart_b64 = _fig_to_b64(fig)
 
@@ -97,11 +99,12 @@ def compute_shap_summary(pipeline, X_sample: pd.DataFrame, problem_type: str, ma
     row_vals = row_values[row_order]
 
     fig, ax = plt.subplots(figsize=(9, max(4, len(row_names) * 0.4)))
-    colors = ["#e74c3c" if v > 0 else "#3498db" for v in row_vals[::-1]]
+    colors = [PALETTE["danger"] if v > 0 else PALETTE["accent"] for v in row_vals[::-1]]
     ax.barh(row_names[::-1], row_vals[::-1], color=colors, edgecolor="white")
-    ax.axvline(0, color="black", linewidth=0.8)
+    ax.axvline(0, color=PALETTE["text"], linewidth=0.8)
     ax.set_xlabel("SHAP value (red = pushes prediction up, blue = pushes down)")
     ax.set_title("Example Prediction — Feature Contributions")
+    style_ax(ax)
     plt.tight_layout()
     waterfall_chart_b64 = _fig_to_b64(fig)
 

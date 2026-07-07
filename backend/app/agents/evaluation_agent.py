@@ -4,9 +4,6 @@ import json
 from io import BytesIO
 
 import joblib
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -15,15 +12,18 @@ from sklearn.pipeline import Pipeline
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.llm_factory import get_llm
+from app.tools.chart_style import PALETTE, apply_style, style_ax
 from app.tools.ml_tools import CLASSIFICATION_MODELS, REGRESSION_MODELS
 from app.tools.stats_tools import bootstrap_metric_ci, compare_to_baseline
 
 from .state import AgentState
 
+apply_style()
+
 
 def _fig_to_b64(fig) -> str:
     buf = BytesIO()
-    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", bbox_inches="tight")
     b64 = base64.b64encode(buf.getvalue()).decode()
     plt.close(fig)
     return b64
@@ -73,6 +73,40 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
 
         llm = get_llm(state["llm_config"])
 
+        # Model fitting, metrics, SHAP, and chart rendering are all synchronous CPU-bound
+        # work — run on a worker thread so they don't block the event loop (and therefore
+        # the SSE stream to the frontend) for however long that takes.
+        llm_card_args = await asyncio.to_thread(_evaluate_sync, state)
+        if state.get("status") == "failed":
+            return state
+        best_name, target, metrics_for_llm, top_features = llm_card_args
+
+        # LLM model card
+        try:
+            state["model_explanation"] = await _call_llm_model_card(
+                llm, best_name, state["problem_type"],
+                target, state["user_description"], metrics_for_llm, top_features
+            )
+        except Exception as e:
+            error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
+            state["warnings"].append(f"Model explanation LLM call failed: {error_msg[:100]}")
+            state["model_explanation"] = MODEL_EXPLANATION_FALLBACK
+
+        state["messages"].append(f"✓ Evaluation complete — best model: {best_name}")
+        state["progress_pct"] = 90
+
+    except Exception as e:
+        error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
+        state["errors"].append(f"Evaluation agent: {error_msg}")
+        state["messages"].append(f"⚠ Evaluation error: {error_msg[:100]}")
+
+    return state
+
+
+def _evaluate_sync(state: AgentState):
+    """Everything CPU-bound: fit, predict, metrics, stats, SHAP, charts. Mutates state in
+    place and returns the bits the async caller needs for the LLM model-card call."""
+    try:
         # Load raw dataframe and unfitted preprocessor
         df = pd.read_parquet(state["processed_dataset_path"])
         target = state["target_column"]
@@ -105,7 +139,7 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
         if not completed:
             state["errors"].append("No non-baseline experiments available to evaluate.")
             state["status"] = "failed"
-            return state
+            return None
         best_exp = max(completed, key=lambda e: e.get("primary_score", 0))
         best_name = best_exp["model_name"]
         state["best_model_name"] = best_name
@@ -246,9 +280,10 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
                 top_features = feat_imp.head(5).to_dict()
                 try:
                     fig, ax = plt.subplots(figsize=(10, 7))
-                    feat_imp.sort_values().plot(kind="barh", ax=ax, color="steelblue")
+                    feat_imp.sort_values().plot(kind="barh", ax=ax, color=PALETTE["primary"])
                     ax.set_title(f"Top Feature Importances — {best_name}")
                     ax.set_xlabel("Importance")
+                    style_ax(ax)
                     plt.tight_layout()
                     charts.append({
                         "title": "Feature Importances", "chart_type": "bar",
@@ -280,8 +315,11 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
                 if len(disp_labels) > 20:
                     disp_labels = None
                 fig, ax = plt.subplots(figsize=(8, 6))
-                ConfusionMatrixDisplay(cm, display_labels=disp_labels).plot(ax=ax, colorbar=True)
+                ConfusionMatrixDisplay(cm, display_labels=disp_labels).plot(
+                    ax=ax, colorbar=True, cmap="Purples"
+                )
                 ax.set_title("Confusion Matrix (normalized)")
+                ax.grid(False)
                 plt.tight_layout()
                 charts.append({
                     "title": "Confusion Matrix", "chart_type": "confusion_matrix",
@@ -297,9 +335,11 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
                     from sklearn.metrics import RocCurveDisplay
                     fig, ax = plt.subplots(figsize=(8, 6))
                     RocCurveDisplay.from_predictions(
-                        y_test, pipeline.predict_proba(X_test)[:, 1], ax=ax
+                        y_test, pipeline.predict_proba(X_test)[:, 1], ax=ax,
+                        color=PALETTE["primary"], plot_chance_level=True,
                     )
                     ax.set_title(f"ROC Curve — AUC={metrics['test_roc_auc']:.3f}")
+                    style_ax(ax)
                     plt.tight_layout()
                     charts.append({
                         "title": "ROC Curve", "chart_type": "roc",
@@ -313,14 +353,15 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
             # Predicted vs Actual
             try:
                 fig, ax = plt.subplots(figsize=(8, 6))
-                ax.scatter(y_test, y_pred, alpha=0.4, color="steelblue", s=15)
+                ax.scatter(y_test, y_pred, alpha=0.45, color=PALETTE["primary"], s=18, edgecolor="none")
                 mn = min(float(np.min(y_test)), float(np.min(y_pred)))
                 mx = max(float(np.max(y_test)), float(np.max(y_pred)))
-                ax.plot([mn, mx], [mn, mx], "r--", lw=2, label="Perfect prediction")
+                ax.plot([mn, mx], [mn, mx], color=PALETTE["danger"], linestyle="--", lw=2, label="Perfect prediction")
                 ax.set_xlabel("Actual")
                 ax.set_ylabel("Predicted")
                 ax.set_title(f"Predicted vs Actual — R²={metrics.get('test_r2', 0):.3f}")
                 ax.legend()
+                style_ax(ax)
                 plt.tight_layout()
                 charts.append({
                     "title": "Predicted vs Actual", "chart_type": "scatter",
@@ -334,10 +375,11 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
             try:
                 residuals = np.array(y_test) - y_pred
                 fig, ax = plt.subplots(figsize=(8, 5))
-                ax.hist(residuals, bins=40, color="steelblue", edgecolor="white")
-                ax.axvline(0, color="red", linestyle="--")
+                ax.hist(residuals, bins=40, color=PALETTE["primary"], edgecolor="white", alpha=0.85)
+                ax.axvline(0, color=PALETTE["danger"], linestyle="--", linewidth=2)
                 ax.set_xlabel("Residual")
                 ax.set_title("Residuals Distribution")
+                style_ax(ax)
                 plt.tight_layout()
                 charts.append({
                     "title": "Residuals Distribution", "chart_type": "histogram",
@@ -349,24 +391,8 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
 
         state["evaluation_charts"] = charts
 
-        # LLM model card
         metrics_for_llm = {k: v for k, v in metrics.items() if k != "classification_report"}
-        try:
-            state["model_explanation"] = await _call_llm_model_card(
-                llm, best_name, state["problem_type"],
-                target, state["user_description"], metrics_for_llm, top_features
-            )
-        except Exception as e:
-            error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
-            state["warnings"].append(f"Model explanation LLM call failed: {error_msg[:100]}")
-            state["model_explanation"] = MODEL_EXPLANATION_FALLBACK
+        return best_name, target, metrics_for_llm, top_features
 
-        state["messages"].append(f"✓ Evaluation complete — best model: {best_name}")
-        state["progress_pct"] = 90
-
-    except Exception as e:
-        error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
-        state["errors"].append(f"Evaluation agent: {error_msg}")
-        state["messages"].append(f"⚠ Evaluation error: {error_msg[:100]}")
-
-    return state
+    except Exception:
+        raise  # handled by run_evaluation_agent's own try/except around the to_thread call

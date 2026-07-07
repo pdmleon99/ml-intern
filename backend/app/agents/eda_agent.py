@@ -119,6 +119,66 @@ def _generate_findings(df: pd.DataFrame, col_profiles: dict, target: str, proble
     return findings
 
 
+def _generate_all_charts(df_work: pd.DataFrame, target: str, problem_type: str, profile: dict) -> tuple[list, list]:
+    """All 7 matplotlib charts, run synchronously off the event loop via asyncio.to_thread —
+    rendering charts one at a time on the event loop thread was blocking SSE delivery to the
+    frontend for the whole EDA stage (visible as the UI looking frozen during live testing)."""
+    charts: list = []
+    warnings: list = []
+
+    try:
+        c = chart_target_distribution(df_work, target, problem_type)
+        if c:
+            charts.append(c)
+    except Exception as e:
+        warnings.append(f"Target distribution chart failed: {str(e)[:80]}")
+
+    try:
+        overall_mp = profile.get("missing_pct", 0.0)
+        c = chart_missing_values(df_work, overall_missing_pct=overall_mp)
+        charts.append(c)
+    except Exception as e:
+        warnings.append(f"Missing values chart failed: {str(e)[:80]}")
+
+    try:
+        c = chart_correlation_heatmap(df_work, target)
+        if c:
+            charts.append(c)
+    except Exception as e:
+        warnings.append(f"Correlation heatmap failed: {str(e)[:80]}")
+
+    try:
+        c = chart_target_correlation_bar(df_work, target)
+        if c:
+            charts.append(c)
+    except Exception as e:
+        warnings.append(f"Target correlation bar failed: {str(e)[:80]}")
+
+    try:
+        c = chart_top_features_vs_target(df_work, target, problem_type)
+        if c:
+            charts.append(c)
+    except Exception as e:
+        warnings.append(f"Features vs target chart failed: {str(e)[:80]}")
+
+    if problem_type == "classification":
+        try:
+            c = chart_class_balance(df_work, target)
+            if c:
+                charts.append(c)
+        except Exception as e:
+            warnings.append(f"Class balance chart failed: {str(e)[:80]}")
+
+    try:
+        c = chart_categorical_top_values(df_work, target)
+        if c:
+            charts.append(c)
+    except Exception as e:
+        warnings.append(f"Categorical chart failed: {str(e)[:80]}")
+
+    return charts, warnings
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 async def _call_llm_for_narrative(llm, compact_profile: dict) -> dict:
     prompt = f"""You are a data scientist reviewing a dataset.
@@ -156,7 +216,7 @@ async def run_eda_agent(state: AgentState) -> AgentState:
 
         # ── 1. LOAD DATASET ──────────────────────────────────────────────
         file_path = state["dataset_path"]
-        df = load_dataframe(file_path)
+        df = await asyncio.to_thread(load_dataframe, file_path)
 
         # Guard: empty dataset
         if df.empty or len(df.columns) == 0:
@@ -201,7 +261,7 @@ async def run_eda_agent(state: AgentState) -> AgentState:
         state["progress_pct"] = 8
 
         # ── 2. COLUMN TYPE INFERENCE + PROFILE ───────────────────────────
-        profile = build_dataset_profile(df_work, original_n_rows, is_large)
+        profile = await asyncio.to_thread(build_dataset_profile, df_work, original_n_rows, is_large)
         state["profile"] = profile
 
         # ── 3. TARGET COLUMN DETECTION ───────────────────────────────────
@@ -244,64 +304,17 @@ async def run_eda_agent(state: AgentState) -> AgentState:
         state["progress_pct"] = 12
 
         # ── 4. FINDINGS ───────────────────────────────────────────────────
-        findings = _generate_findings(df_work, profile["col_profiles"], target, problem_type)
+        findings = await asyncio.to_thread(_generate_findings, df_work, profile["col_profiles"], target, problem_type)
         state["eda_findings"] = findings
         n_critical = sum(1 for f in findings if f["severity"] == "critical")
         state["messages"].append(f"  Found {len(findings)} findings ({n_critical} critical)")
         state["progress_pct"] = 15
 
         # ── 5. CHARTS ────────────────────────────────────────────────────
-        charts = []
-        try:
-            c = chart_target_distribution(df_work, target, problem_type)
-            if c:
-                charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Target distribution chart failed: {str(e)[:80]}")
-
-        try:
-            overall_mp = profile.get("missing_pct", 0.0)
-            c = chart_missing_values(df_work, overall_missing_pct=overall_mp)
-            charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Missing values chart failed: {str(e)[:80]}")
-
-        try:
-            c = chart_correlation_heatmap(df_work, target)
-            if c:
-                charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Correlation heatmap failed: {str(e)[:80]}")
-
-        try:
-            c = chart_target_correlation_bar(df_work, target)
-            if c:
-                charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Target correlation bar failed: {str(e)[:80]}")
-
-        try:
-            c = chart_top_features_vs_target(df_work, target, problem_type)
-            if c:
-                charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Features vs target chart failed: {str(e)[:80]}")
-
-        if problem_type == "classification":
-            try:
-                c = chart_class_balance(df_work, target)
-                if c:
-                    charts.append(c)
-            except Exception as e:
-                state["warnings"].append(f"Class balance chart failed: {str(e)[:80]}")
-
-        try:
-            c = chart_categorical_top_values(df_work, target)
-            if c:
-                charts.append(c)
-        except Exception as e:
-            state["warnings"].append(f"Categorical chart failed: {str(e)[:80]}")
-
+        charts, chart_warnings = await asyncio.to_thread(
+            _generate_all_charts, df_work, target, problem_type, profile
+        )
+        state["warnings"].extend(chart_warnings)
         state["eda_charts"] = charts
         state["messages"].append(f"  Generated {len(charts)} EDA charts")
         state["progress_pct"] = 18
