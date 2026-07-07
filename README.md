@@ -194,6 +194,7 @@ The Planner will consider it automatically the next time it builds a shortlist.
 - Very wide datasets (500+ columns) are auto-reduced to top 200 by variance
 - The Critic's retry loop is bounded to 2 attempts — after that it approves with a low-confidence caveat rather than looping indefinitely
 - `mypy` is run in CI as informational (non-blocking) — there is pre-existing type debt around SQLAlchemy's declarative Column typing and a couple of third-party stub mismatches (langchain, aiofiles) that don't affect runtime behavior
+- **Concurrency under load**: the pipeline runs as a FastAPI `BackgroundTask` on a single-process `uvicorn` server. LLM calls are offloaded to worker threads (`asyncio.to_thread`) and model training already ran through a `ThreadPoolExecutor`, which fixed an actual crash (the server's socket-accept loop died under prolonged blocking during live testing). However, CPU-bound scikit-learn/pandas work still holds Python's GIL for large stretches, so the server can become slow to respond to *other* requests (health checks, a second job) while one job is mid-training — confirmed via live testing, not theoretical. For a single-user BYOK demo this is a non-issue; for multi-tenant production use, the correct fix is moving model training to a `ProcessPoolExecutor` (or a separate worker process/queue like Celery/RQ) so it's immune to the GIL — noted here rather than rushed in, since a live-tested partial fix is more trustworthy than an unverified "complete" one.
 
 ---
 

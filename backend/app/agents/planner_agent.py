@@ -73,7 +73,7 @@ Rules:
   at least 2 models for a meaningful comparison.
 - risk_flags should call out anything a data scientist should be cautious about."""
 
-        plan = call_structured(llm, AnalysisPlan, prompt, state, "planner", model_name)
+        plan = await call_structured(llm, AnalysisPlan, prompt, state, "planner", model_name)
 
         valid_models = set(models.keys())
         plan.model_shortlist = [m for m in plan.model_shortlist if m in valid_models] or list(valid_models)

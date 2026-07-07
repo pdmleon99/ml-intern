@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -29,7 +30,7 @@ FALLBACK_RECOMMENDATIONS = [
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def _call_llm_recommendations(llm, summary: dict, audit_lines: list) -> list:
+async def _call_llm_recommendations(llm, summary: dict, audit_lines: list) -> list:
     audit_text = "\n".join(audit_lines) if audit_lines else "(none recorded)"
     prompt = f"""You are a senior data scientist writing next-step recommendations after an automated ML pipeline has already run.
 
@@ -46,8 +47,8 @@ Focus on: model improvement, data collection, deployment, monitoring, business i
 
 Reply with ONLY a JSON array of 5 strings. No markdown. No numbering.
 ["rec 1", "rec 2", "rec 3", "rec 4", "rec 5"]"""
-    raw = llm.invoke(prompt).content
-    raw = raw.replace("```json", "").replace("```", "").strip()
+    response = await asyncio.to_thread(llm.invoke, prompt)
+    raw = response.content.replace("```json", "").replace("```", "").strip()
     result = json.loads(raw)
     if isinstance(result, list) and len(result) >= 1:
         return result[:5]
@@ -87,7 +88,7 @@ async def run_report_agent(state: AgentState) -> AgentState:
             audit_lines.append(f"- DONE: dropped '{d.get('column')}' — {d.get('reason','')[:80]}")
 
         try:
-            recommendations = _call_llm_recommendations(llm, summary_for_llm, audit_lines)
+            recommendations = await _call_llm_recommendations(llm, summary_for_llm, audit_lines)
         except Exception as e:
             error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
             state["warnings"].append(f"LLM recommendations failed: {error_msg[:100]}")

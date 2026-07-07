@@ -71,7 +71,7 @@ Guidance:
 - retry_count_so_far={retry_count} of max_retries={MAX_RETRIES} — if you've already used all
   retries, prefer "approve" or "insufficient_signal" over asking for another retry."""
 
-        verdict = call_structured(llm, CriticVerdict, prompt, state, "critic", model_name)
+        verdict = await call_structured(llm, CriticVerdict, prompt, state, "critic", model_name)
 
     except Exception as e:
         error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")

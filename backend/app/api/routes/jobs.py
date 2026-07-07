@@ -206,7 +206,7 @@ async def _run_pipeline(
 async def validate_key(request: Request):
     try:
         llm_config = request.state.llm_config
-        validate_llm_config(llm_config)
+        await asyncio.to_thread(validate_llm_config, llm_config)
         return {"valid": True, "provider": llm_config["provider"]}
     except ValueError as e:
         error_msg = str(e)

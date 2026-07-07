@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -119,7 +120,7 @@ def _generate_findings(df: pd.DataFrame, col_profiles: dict, target: str, proble
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def _call_llm_for_narrative(llm, compact_profile: dict) -> dict:
+async def _call_llm_for_narrative(llm, compact_profile: dict) -> dict:
     prompt = f"""You are a data scientist reviewing a dataset.
 Profile: {json.dumps(compact_profile, indent=2)}
 
@@ -130,18 +131,19 @@ Write a JSON response with exactly these three fields:
   "fe_recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]
 }}
 Reply with ONLY the JSON, no markdown, no explanation."""
-    response = llm.invoke(prompt).content
+    response = (await asyncio.to_thread(llm.invoke, prompt)).content
     response = response.replace("```json", "").replace("```", "").strip()
     return json.loads(response)
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def _call_llm_for_target(llm, columns: list, description: str) -> str:
+async def _call_llm_for_target(llm, columns: list, description: str) -> str:
     prompt = f"""Dataset columns: {columns}
 User goal: "{description}"
 Which column is most likely the prediction target?
 Reply with ONLY the column name, nothing else."""
-    return llm.invoke(prompt).content.strip().strip('"').strip("'")
+    response = await asyncio.to_thread(llm.invoke, prompt)
+    return response.content.strip().strip('"').strip("'")
 
 
 async def run_eda_agent(state: AgentState) -> AgentState:
@@ -214,7 +216,7 @@ async def run_eda_agent(state: AgentState) -> AgentState:
             else:
                 # Ask LLM
                 try:
-                    llm_target = _call_llm_for_target(llm, list(df.columns), state["user_description"])
+                    llm_target = await _call_llm_for_target(llm, list(df.columns), state["user_description"])
                     if llm_target in df.columns:
                         state["target_column"] = llm_target
                     else:
@@ -317,7 +319,7 @@ async def run_eda_agent(state: AgentState) -> AgentState:
             "n_categorical": profile["n_categorical"],
         }
         try:
-            state["eda_narrative"] = _call_llm_for_narrative(llm, compact_profile)
+            state["eda_narrative"] = await _call_llm_for_narrative(llm, compact_profile)
         except Exception as e:
             error_msg = str(e).replace(state["llm_config"].get("api_key", ""), "[REDACTED]")
             state["warnings"].append(f"LLM narrative generation failed: {error_msg[:100]}")

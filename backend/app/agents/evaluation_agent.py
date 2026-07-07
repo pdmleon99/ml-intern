@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 from io import BytesIO
@@ -35,7 +36,7 @@ MODEL_EXPLANATION_FALLBACK = (
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def _call_llm_model_card(llm, best_name, problem_type, target, description, metrics, top_features):
+async def _call_llm_model_card(llm, best_name, problem_type, target, description, metrics, top_features):
     prompt = f"""You are explaining an ML model to a business stakeholder (non-technical).
 
 Model: {best_name}
@@ -50,7 +51,8 @@ Write a clear 150-200 word explanation covering:
 3. One honest limitation or caveat
 
 Write in plain prose, no bullet points, no headers."""
-    return llm.invoke(prompt).content.strip()
+    response = await asyncio.to_thread(llm.invoke, prompt)
+    return response.content.strip()
 
 
 async def run_evaluation_agent(state: AgentState) -> AgentState:
@@ -350,7 +352,7 @@ async def run_evaluation_agent(state: AgentState) -> AgentState:
         # LLM model card
         metrics_for_llm = {k: v for k, v in metrics.items() if k != "classification_report"}
         try:
-            state["model_explanation"] = _call_llm_model_card(
+            state["model_explanation"] = await _call_llm_model_card(
                 llm, best_name, state["problem_type"],
                 target, state["user_description"], metrics_for_llm, top_features
             )

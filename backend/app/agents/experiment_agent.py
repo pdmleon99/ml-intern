@@ -1,3 +1,4 @@
+import asyncio
 import concurrent.futures
 import copy
 import time
@@ -116,19 +117,29 @@ async def run_experiment_agent(state: AgentState) -> AgentState:
             ])
 
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(
-                        cross_validate,
-                        pipeline,
-                        X_cv,
-                        y_cv,
-                        cv=cv,
-                        scoring=scoring,
-                        return_train_score=False,
-                        n_jobs=1,
-                        error_score="raise",
+                # Trains in a worker thread and awaits it — `cross_validate` blocks for
+                # seconds-to-minutes; awaiting a wrapped future (instead of the old
+                # `future.result(timeout=...)`, which blocks the event loop directly) keeps
+                # the server responsive to other requests (health checks, other jobs' SSE
+                # streams) while this model trains.
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(
+                    cross_validate,
+                    pipeline,
+                    X_cv,
+                    y_cv,
+                    cv=cv,
+                    scoring=scoring,
+                    return_train_score=False,
+                    n_jobs=1,
+                    error_score="raise",
+                )
+                try:
+                    cv_results = await asyncio.wait_for(
+                        asyncio.wrap_future(future), timeout=settings.MAX_TRAINING_TIMEOUT_SECONDS
                     )
-                    cv_results = future.result(timeout=settings.MAX_TRAINING_TIMEOUT_SECONDS)
+                finally:
+                    executor.shutdown(wait=False)
 
                 elapsed = time.time() - start
                 cv_scores = {
@@ -185,8 +196,9 @@ async def run_experiment_agent(state: AgentState) -> AgentState:
                         ("preprocessor", copy.deepcopy(preprocessor)),
                         ("model", model_factory()),
                     ])
-                    cv_results = cross_validate(pipeline2, X_red, y_red, cv=cv,
-                                                scoring=scoring, n_jobs=1)
+                    cv_results = await asyncio.to_thread(
+                        cross_validate, pipeline2, X_red, y_red, cv=cv, scoring=scoring, n_jobs=1
+                    )
                     elapsed = time.time() - start
                     cv_scores = {
                         k: {"mean": float(np.mean(v)), "std": float(np.std(v))}
