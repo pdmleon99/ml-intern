@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_live_llm_evals:
+        description: "Run the live-LLM agent evals (uses a real API key, costs money)"
+        type: boolean
+        default: false
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy) — informational only
+        run: mypy app/ || true
+
+      - name: Run tests + agent evals
+        run: pytest tests/ -v --cov=app --cov-report=term-missing
+
+  backend-live-llm-evals:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_llm_evals
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run live LLM evals
+        env:
+          RUN_LIVE_LLM_EVALS: "1"
+          TEST_LLM_PROVIDER: ${{ secrets.TEST_LLM_PROVIDER }}
+          TEST_LLM_API_KEY: ${{ secrets.TEST_LLM_API_KEY }}
+          TEST_LLM_MODEL: ${{ secrets.TEST_LLM_MODEL }}
+        run: pytest tests/evals/ -v -m live_llm
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
