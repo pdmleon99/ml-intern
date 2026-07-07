@@ -80,29 +80,34 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Header />
 
-      <main className="max-w-4xl mx-auto px-4 py-10">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+      <main className="max-w-4xl mx-auto px-4 py-14">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-100 rounded-full px-3 py-1 mb-4 uppercase tracking-wide">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+            Self-correcting multi-agent pipeline
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
             Autonomous Data Science
           </h1>
-          <p className="text-lg text-gray-600">
-            Upload any tabular dataset and get automated EDA, feature engineering,
-            model training, and a PDF report.
+          <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
+            Upload any tabular dataset — a Planner, Critic, and Evaluator agent plan a strategy,
+            train models, critique their own results, and hand you a report with statistical
+            confidence, not just a bare accuracy number.
           </p>
         </div>
 
         {/* Tab selector */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+        <div className="bg-white rounded-2xl shadow-soft border border-slate-200 p-6 mb-6">
+          <div className="flex gap-1 mb-6 bg-slate-100/80 rounded-xl p-1">
             {(["upload", "huggingface", "kaggle"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setPreview(null); setError(null); }}
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                  tab === t ? "bg-white shadow text-blue-600" : "text-gray-600 hover:text-gray-900"
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  tab === t ? "bg-white shadow-soft text-brand-700" : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 {t === "upload" ? "📁 Upload" : t === "huggingface" ? "🤗 HuggingFace" : "🏆 Kaggle"}
@@ -113,8 +118,8 @@ export default function HomePage() {
           {tab === "upload" && (
             <div>
               <div
-                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
-                  dragOver ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+                className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+                  dragOver ? "border-brand-400 bg-brand-50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -127,10 +132,10 @@ export default function HomePage() {
                 onClick={() => fileRef.current?.click()}
               >
                 <div className="text-4xl mb-3">📊</div>
-                <p className="text-gray-600 font-medium">
-                  Drop your dataset here or <span className="text-blue-500">click to browse</span>
+                <p className="text-slate-600 font-medium">
+                  Drop your dataset here or <span className="text-brand-600">click to browse</span>
                 </p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-slate-400 mt-1">
                   CSV, Parquet, Excel, JSON, TSV, ZIP(CSV) — up to 500MB
                 </p>
                 <input
@@ -150,30 +155,30 @@ export default function HomePage() {
           {tab === "huggingface" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Dataset ID
                 </label>
                 <input
                   value={hfId}
                   onChange={(e) => setHfId(e.target.value)}
                   placeholder="e.g. scikit-learn/iris"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Split</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Split</label>
                   <input
                     value={hfSplit}
                     onChange={(e) => setHfSplit(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
               <button
                 onClick={handleHFLoad}
                 disabled={loading}
-                className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium"
+                className="px-6 py-2.5 bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-medium shadow-soft"
               >
                 {loading ? "Loading..." : "Load Dataset →"}
               </button>
@@ -181,8 +186,8 @@ export default function HomePage() {
           )}
 
           {tab === "kaggle" && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
-              <p className="text-yellow-800 text-sm">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <p className="text-amber-800 text-sm">
                 Kaggle integration requires KAGGLE_USERNAME and KAGGLE_KEY environment variables.
                 Use the HuggingFace tab or direct upload instead.
               </p>
@@ -192,33 +197,33 @@ export default function HomePage() {
 
         {/* Loading indicator */}
         {loading && (
-          <div className="flex items-center justify-center gap-2 py-4 text-gray-500">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-4 text-slate-500">
+            <div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
             Processing...
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 text-sm">
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl p-4 mb-4 text-sm">
             {error}
           </div>
         )}
 
         {/* Dataset preview */}
         {preview && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-soft border border-slate-200 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-900">Dataset Preview</h2>
-              <span className="text-sm text-gray-500">
+              <h2 className="font-semibold text-slate-900">Dataset Preview</h2>
+              <span className="text-sm text-slate-500">
                 {preview.n_rows.toLocaleString()} rows × {preview.columns.length} columns
               </span>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="text-xs w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-50">
                   <tr>
                     {preview.columns.slice(0, 12).map((col) => (
-                      <th key={col} className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">
+                      <th key={col} className="px-3 py-2 text-left font-medium text-slate-500 whitespace-nowrap uppercase tracking-wide">
                         {col}
                       </th>
                     ))}
@@ -226,9 +231,9 @@ export default function HomePage() {
                 </thead>
                 <tbody>
                   {preview.preview.slice(1, 6).map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
                       {row.slice(0, 12).map((cell, j) => (
-                        <td key={j} className="px-3 py-1.5 text-gray-700 whitespace-nowrap max-w-xs truncate">
+                        <td key={j} className="px-3 py-1.5 text-slate-600 whitespace-nowrap max-w-xs truncate">
                           {cell}
                         </td>
                       ))}
@@ -241,38 +246,48 @@ export default function HomePage() {
             {/* Analysis form */}
             <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Describe your prediction goal <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Describe your prediction goal <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="e.g. Predict whether a customer will churn based on their usage patterns"
                   rows={2}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Target column{" "}
-                  <span className="text-gray-400 font-normal">(leave empty to auto-detect)</span>
+                  <span className="text-amber-600 font-normal">
+                    (recommended — auto-detect can guess wrong)
+                  </span>
                 </label>
                 <select
                   value={targetCol}
                   onChange={(e) => setTargetCol(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                    targetCol ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"
+                  }`}
                 >
-                  <option value="">Auto-detect from description</option>
+                  <option value="">⚠ Auto-detect from description (less reliable)</option>
                   {preview.columns.map((col) => (
                     <option key={col} value={col}>{col}</option>
                   ))}
                 </select>
+                {!targetCol && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Pick the exact column you want to predict — the agent works with any
+                    column, but a wrong guess here means a wrong analysis.
+                  </p>
+                )}
               </div>
 
               <button
                 onClick={handleStartAnalysis}
                 disabled={loading || !description.trim()}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-br from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-soft"
               >
                 {loading ? (
                   <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Starting...</>

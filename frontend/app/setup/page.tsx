@@ -83,27 +83,29 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-brand-950 flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-6">
-          <div className="text-4xl mb-2">🤖</div>
-          <h1 className="text-2xl font-bold text-gray-900">ML Intern</h1>
-          <p className="text-gray-500 mt-1">Autonomous Data Science Agent</p>
+          <span className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-600 to-violet-600 text-white text-lg font-bold shadow-soft mb-3">
+            ML
+          </span>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">ML Intern</h1>
+          <p className="text-slate-500 mt-1">Autonomous Data Science Agent</p>
         </div>
 
-        <hr className="my-6 border-gray-200" />
+        <hr className="my-6 border-slate-100" />
 
         <form onSubmit={handleSubmit}>
-          <p className="font-semibold text-gray-700 mb-3">Choose your AI provider</p>
+          <p className="font-semibold text-slate-700 mb-3">Choose your AI provider</p>
 
           <div className="space-y-3 mb-6">
             {PROVIDERS.map((p) => (
               <label
                 key={p.id}
-                className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                className={`flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                   provider === p.id
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-brand-500 bg-brand-50"
+                    : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 <input
@@ -112,28 +114,28 @@ export default function SetupPage() {
                   value={p.id}
                   checked={provider === p.id}
                   onChange={() => handleProviderChange(p.id)}
-                  className="mt-1"
+                  className="mt-1 accent-brand-600"
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{p.name}</span>
+                    <span className="font-medium text-slate-900">{p.name}</span>
                     {p.recommended && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium">
                         Recommended
                       </span>
                     )}
                     {p.free && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
                         FREE
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{p.description}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{p.description}</p>
                   <a
                     href={`https://${p.link}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline"
+                    className="text-xs text-brand-600 hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     → {p.link}
@@ -143,11 +145,11 @@ export default function SetupPage() {
             ))}
           </div>
 
-          <hr className="my-6 border-gray-200" />
+          <hr className="my-6 border-slate-100" />
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
                 Your API key
               </label>
               <div className="relative">
@@ -162,13 +164,13 @@ export default function SetupPage() {
                       ? "sk-..."
                       : "gsk_..."
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-sm"
                   autoComplete="off"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey((v) => !v)}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                 >
                   {showKey ? "🙈" : "👁"}
                 </button>
@@ -176,11 +178,11 @@ export default function SetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Model</label>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
               >
                 {selectedProvider.models.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -191,7 +193,7 @@ export default function SetupPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3 text-sm">
                 {error}
               </div>
             )}
@@ -199,7 +201,7 @@ export default function SetupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-br from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 disabled:from-slate-300 disabled:to-slate-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-soft"
             >
               {loading ? (
                 <>
@@ -213,12 +215,12 @@ export default function SetupPage() {
           </div>
         </form>
 
-        <hr className="my-6 border-gray-200" />
-        <div className="flex items-start gap-2 text-sm text-gray-500">
-          <span>🔒</span>
+        <hr className="my-6 border-slate-100" />
+        <div className="flex items-start gap-2 text-sm text-slate-500">
+          <span aria-hidden>🔒</span>
           <p>
             Your key is stored only in your browser. It is never sent to our servers or logged.
-            <span className="font-medium text-gray-700"> We pay $0 to run this app.</span>
+            <span className="font-medium text-slate-700"> We pay $0 to run this app.</span>
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { streamJobEvents } from "./api";
+import { getJob, streamJobEvents } from "./api";
 
 export interface StreamEvent {
   agent: string;
@@ -29,6 +29,26 @@ export interface JobStreamState {
   status: "idle" | "running" | "completed" | "failed";
   error: string | null;
   reportUrl: string | null;
+}
+
+// job.messages from the DB is a flat list of strings with no per-message agent tag (only
+// the live SSE "update" events carry that). Each agent's first message is prefixed with a
+// distinct emoji, so the polling fallback can reconstruct which agent produced each line.
+const AGENT_EMOJI_MARKERS: [string, string][] = [
+  ["🔍", "eda"],
+  ["🧠", "planner"],
+  ["🔧", "features"],
+  ["🏋️", "experiments"],
+  ["🔬", "critic"],
+  ["📊", "evaluation"],
+  ["📄", "report"],
+];
+
+function inferAgentFor(message: string, lastKnown: string): string {
+  for (const [emoji, agent] of AGENT_EMOJI_MARKERS) {
+    if (message.includes(emoji)) return agent;
+  }
+  return lastKnown;
 }
 
 const INITIAL_STATE: JobStreamState = {
@@ -126,6 +146,60 @@ export function useJobStream(jobId: string | null) {
     connect(controller.signal);
     return () => controller.abort();
   }, [jobId, connect]);
+
+  // Polling fallback: heavy synchronous CPU work in the pipeline (real model training,
+  // real LLM calls) can starve the server's single event loop for stretches long enough
+  // that the already-open SSE connection doesn't get a turn to flush — the UI looks frozen
+  // even though the job is genuinely progressing. Short-lived poll requests get through
+  // more reliably than one long-held stream, so this keeps the UI honest as a safety net
+  // even if SSE stalls. Never regresses progress/status, and only appends messages not
+  // already seen from the stream.
+  const seenMessageCountRef = useRef(0);
+  const lastInferredAgentRef = useRef("eda");
+  useEffect(() => {
+    if (!jobId) return;
+    const interval = setInterval(async () => {
+      try {
+        const job = await getJob(jobId);
+        setState((prev) => {
+          if (prev.status === "completed" || prev.status === "failed") return prev;
+
+          const messages: string[] = job.messages ?? [];
+          const newMessages = messages.slice(seenMessageCountRef.current);
+          seenMessageCountRef.current = messages.length;
+
+          const newEvents = newMessages.map((m) => {
+            const agent = inferAgentFor(m, lastInferredAgentRef.current);
+            lastInferredAgentRef.current = agent;
+            return {
+              agent,
+              progress_pct: job.progress_pct ?? prev.progress,
+              message: m,
+              timestamp: new Date().toISOString(),
+            };
+          });
+
+          const nextStatus =
+            job.status === "completed" ? "completed" :
+            job.status === "failed" ? "failed" :
+            prev.status === "idle" ? "running" : prev.status;
+
+          return {
+            ...prev,
+            status: nextStatus,
+            progress: Math.max(prev.progress, job.progress_pct ?? prev.progress),
+            currentAgent: job.current_agent ?? prev.currentAgent,
+            events: newEvents.length > 0 ? [...prev.events, ...newEvents] : prev.events,
+            error: job.status === "failed" ? (job.errors?.[0] ?? "Pipeline failed") : prev.error,
+            reportUrl: job.status === "completed" ? `/api/reports/${jobId}/pdf` : prev.reportUrl,
+          };
+        });
+      } catch {
+        // transient — SSE or the next poll will catch up
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [jobId]);
 
   return state;
 }

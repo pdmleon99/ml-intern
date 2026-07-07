@@ -13,27 +13,32 @@ export function Header() {
   }, []);
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-gray-900">
-          <span className="text-xl">🤖</span>
-          <span>ML Intern</span>
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/70 sticky top-0 z-50">
+      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5 font-bold text-slate-900">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand-600 to-violet-600 text-white text-sm shadow-soft">
+            ML
+          </span>
+          <span className="tracking-tight">ML Intern</span>
         </Link>
 
-        <nav className="flex items-center gap-4">
-          <Link href="/jobs" className="text-sm text-gray-600 hover:text-gray-900">
+        <nav className="flex items-center gap-2">
+          <Link
+            href="/jobs"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          >
             My Jobs
           </Link>
           {config && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-              {config.provider} / {config.model.split("-").slice(-2).join("-")}
+            <span className="text-xs font-medium bg-brand-50 text-brand-700 border border-brand-100 px-2.5 py-1 rounded-full font-mono">
+              {config.provider} · {config.model.split("-").slice(-2).join("-")}
             </span>
           )}
           <Link
             href="/setup"
-            className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex items-center gap-1.5"
           >
-            ⚙ Settings
+            <span aria-hidden>⚙</span> Settings
           </Link>
         </nav>
       </div>
