@@ -1,4 +1,4 @@
-# ML Intern — A Self-Correcting Multi-Agent Data Scientist
+# ML Intern  A Self-Correcting Multi-Agent Data Scientist
 
 Upload a tabular dataset, describe your goal, and a team of LLM agents plans a strategy, engineers
 features, trains models, **critiques its own results, and retries when it isn't confident** —
@@ -94,7 +94,7 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
 ### Supported providers
 
 | Provider | Free tier? | Recommended model |
-|---|---|---|
+|-|-|-|
 | **Anthropic** ← recommended | $5 free on signup | Claude Haiku 4.5 |
 | OpenAI | No | GPT-4o Mini |
 | **Groq** | ✅ Yes, no card | Llama 3.3 70B |
@@ -140,10 +140,10 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
 ```bash
 # Backend on Railway
 railway init
-railway up --service backend
+railway up service backend
 
 # Frontend on Vercel
-vercel --prod
+vercel prod
 
 # Set env vars:
 NEXT_PUBLIC_API_URL=https://your-backend.railway.app
