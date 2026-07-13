@@ -1,7 +1,10 @@
 import { getLLMConfig, LLMConfig } from "./storage";
 
+// 127.0.0.1 (not "localhost") avoids a slow IPv6-then-IPv4 fallback: Chrome resolves
+// "localhost" via Happy Eyeballs and tries ::1 first, which stalls for ~2 minutes on
+// machines where the dev server only binds the IPv4 loopback before falling back.
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 export interface CreateJobPayload {
   dataset_source: "upload" | "huggingface" | "kaggle";

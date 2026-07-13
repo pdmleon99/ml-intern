@@ -7,8 +7,6 @@ a bare accuracy number.
 
 ![Demo placeholder — replace with GIF](docs/demo.gif)
 
----
-
 ## Why this is different from a typical "AutoML + LLM" project
 
 Most "autonomous data science agent" projects are a fixed sklearn pipeline with an LLM bolted on
@@ -40,8 +38,6 @@ to narrate the results. This one isn't:
 The base is still a legitimate FastAPI + LangGraph + Next.js system with real cross-validation,
 timeout/OOM handling, and MLflow tracking — the agentic layer above is what makes it worth a
 second look.
-
----
 
 ## Architecture
 
@@ -75,8 +71,6 @@ dataset's size and shape. **Critic** reviews training results against the baseli
 back to `Features` or `Train` with a revised strategy (bounded to 2 retries, then it force-approves
 with an honest low-confidence caveat rather than looping forever).
 
----
-
 ## Quick Start
 
 ```bash
@@ -87,8 +81,6 @@ make dev
 ```
 
 Open http://localhost:3000, enter your API key, and upload a dataset.
-
----
 
 ## BYOK — Bring Your Own Key
 
@@ -107,8 +99,6 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
 | OpenAI | No | GPT-4o Mini |
 | **Groq** | ✅ Yes, no card | Llama 3.3 70B |
 
----
-
 ## Supported Dataset Formats
 
 - CSV (any encoding — auto-detected)
@@ -120,8 +110,6 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
 
 **Dataset sources:** Direct file upload, HuggingFace Hub (`scikit-learn/iris`), Kaggle (requires API key)
 
----
-
 ## What ML Intern Does
 
 1. **EDA Agent** — Profiles columns, detects target, finds missing values, leakage, class imbalance. Generates 7 charts. LLM writes narrative.
@@ -131,8 +119,6 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
 5. **Critic Agent** — Reviews the best model vs. the baseline, flags instability or insufficient signal, and can send the run back to Features or Train with a revised strategy (bounded to 2 retries).
 6. **Evaluation Agent** — Retrains the approved model, computes final metrics, bootstrapped confidence intervals, baseline comparison, SHAP explainability, and diagnostic charts.
 7. **Report Agent** — Generates a multi-page PDF with all findings, charts, statistical confidence, agent self-review history, and LLM-written recommendations.
-
----
 
 ## Agent Evals
 
@@ -146,8 +132,6 @@ Open http://localhost:3000, enter your API key, and upload a dataset.
   real configured model — set `RUN_LIVE_LLM_EVALS=1` plus `TEST_LLM_API_KEY` (and optionally
   `TEST_LLM_PROVIDER` / `TEST_LLM_MODEL`) to run it locally, or trigger the `backend-live-llm-evals`
   job manually in CI.
-
----
 
 ## Deployment
 
@@ -171,8 +155,6 @@ NEXT_PUBLIC_API_URL=https://your-backend.railway.app
 make prod
 ```
 
----
-
 ## Adding a New Model
 
 Add to `CLASSIFICATION_MODELS` or `REGRESSION_MODELS` in `backend/app/tools/ml_tools.py`:
@@ -182,8 +164,6 @@ Add to `CLASSIFICATION_MODELS` or `REGRESSION_MODELS` in `backend/app/tools/ml_t
 ```
 
 The Planner will consider it automatically the next time it builds a shortlist.
-
----
 
 ## Known Limitations
 
@@ -196,8 +176,6 @@ The Planner will consider it automatically the next time it builds a shortlist.
 - `mypy` is run in CI as informational (non-blocking) — there is pre-existing type debt around SQLAlchemy's declarative Column typing and a couple of third-party stub mismatches (langchain, aiofiles) that don't affect runtime behavior
 - **Concurrency under load**: the pipeline runs as a FastAPI `BackgroundTask` on a single-process `uvicorn` server. LLM calls are offloaded to worker threads (`asyncio.to_thread`) and model training already ran through a `ThreadPoolExecutor`, which fixed an actual crash (the server's socket-accept loop died under prolonged blocking during live testing). However, CPU-bound scikit-learn/pandas work still holds Python's GIL for large stretches, so the server can become slow to respond to *other* requests (health checks, a second job) while one job is mid-training — confirmed via live testing, not theoretical. For a single-user BYOK demo this is a non-issue; for multi-tenant production use, the correct fix is moving model training to a `ProcessPoolExecutor` (or a separate worker process/queue like Celery/RQ) so it's immune to the GIL — noted here rather than rushed in, since a live-tested partial fix is more trustworthy than an unverified "complete" one.
 
----
-
 ## Tech Stack
 
 **Backend:** FastAPI, LangGraph (with a bounded reflection loop), LangChain (structured tool-calling
@@ -206,8 +184,6 @@ output), scikit-learn, XGBoost, LightGBM, SHAP, ReportLab, MLflow, SQLAlchemy, S
 **Observability:** Per-call token/cost/latency tracking, structured SSE trace events
 **Testing:** pytest, agent evals (deterministic + opt-in live-LLM), GitHub Actions CI
 **Infrastructure:** Docker Compose, Uvicorn
-
----
 
 ## License
 

@@ -89,11 +89,19 @@ async def run_experiment_agent(state: AgentState) -> AgentState:
 
         experiments = []
 
-        mlflow_available = False
-        try:
+        # mlflow.set_experiment() makes a synchronous HTTP call with no connect timeout of
+        # its own — if the tracking server is unreachable this blocks the event loop (not
+        # just this request) for minutes, freezing every other job's polling/SSE. Running it
+        # in a thread with a hard wait_for bounds the damage to a few seconds either way.
+        def _init_mlflow():
             import mlflow
             mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
             mlflow.set_experiment(f"ml-intern-{state['job_id'][:8]}")
+
+        mlflow_available = False
+        try:
+            await asyncio.wait_for(asyncio.to_thread(_init_mlflow), timeout=3)
+            import mlflow
             mlflow_available = True
         except Exception:
             state["warnings"].append("MLflow server unavailable — skipping experiment tracking")
